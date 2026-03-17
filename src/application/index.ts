@@ -1,0 +1,1 @@
+export { SearchProductsUseCase } from './SearchProductsUseCase';

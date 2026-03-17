@@ -1,0 +1,1 @@
+export { ProductSearcher } from './ProductSearcher';
