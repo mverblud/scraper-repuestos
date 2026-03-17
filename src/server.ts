@@ -4,9 +4,9 @@ import cors from '@fastify/cors';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 
-import { RamosScraperAdapter, RamosConfig } from './infrastructure';
-import { SearchProductsUseCase } from './application';
-import { scraperRoutes } from './interface';
+import { RamosScraperAdapter, RamosConfig, JsonMarcaRepository } from './infrastructure';
+import { SearchProductsUseCase, MarcasService } from './application';
+import { scraperRoutes, marcasRoutes } from './interface';
 
 // ─── Validar variables de entorno requeridas ────────────────────────────
 
@@ -36,6 +36,9 @@ const HOST = process.env.HOST || '0.0.0.0';
 const ramosAdapter = new RamosScraperAdapter(config);
 const searchProductsUseCase = new SearchProductsUseCase(ramosAdapter);
 
+const marcaRepository = new JsonMarcaRepository();
+const marcasService = new MarcasService(marcaRepository);
+
 // ─── Fastify ────────────────────────────────────────────────────────────
 
 const app = Fastify({
@@ -61,7 +64,8 @@ app.register(swagger, {
     },
     tags: [
       { name: 'scraper', description: 'Endpoints de búsqueda de productos' },
-      { name: 'health', description: 'Estado del servidor' },
+      { name: 'marcas',  description: 'CRUD de marcas de repuestos' },
+      { name: 'health',  description: 'Estado del servidor' },
     ],
   },
 });
@@ -90,6 +94,9 @@ app.get('/health', {
 
 // Registrar rutas de scraping
 app.register(scraperRoutes(searchProductsUseCase));
+
+// Registrar rutas de marcas
+app.register(marcasRoutes(marcasService));
 
 // ─── Arrancar servidor ──────────────────────────────────────────────────
 

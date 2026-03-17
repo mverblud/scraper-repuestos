@@ -34,3 +34,19 @@ export class ParsingError extends Error {
     this.name = 'ParsingError';
   }
 }
+
+/** Error cuando un recurso no fue encontrado */
+export class NotFoundError extends Error {
+  constructor(message = 'Recurso no encontrado') {
+    super(message);
+    this.name = 'NotFoundError';
+  }
+}
+
+/** Error cuando ya existe un recurso con el mismo identificador único */
+export class ConflictError extends Error {
+  constructor(message = 'Ya existe un recurso con ese valor') {
+    super(message);
+    this.name = 'ConflictError';
+  }
+}
