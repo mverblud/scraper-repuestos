@@ -1,6 +1,8 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 
 import { RamosScraperAdapter, RamosConfig } from './infrastructure';
 import { SearchProductsUseCase } from './application';
@@ -49,8 +51,42 @@ const app = Fastify({
 // CORS habilitado para todos los orígenes
 app.register(cors, { origin: true });
 
+// Swagger / OpenAPI
+app.register(swagger, {
+  openapi: {
+    info: {
+      title: 'Scraper Repuestos API',
+      description: 'API REST para scraping de catálogos de proveedores de repuestos automotor.',
+      version: '1.0.0',
+    },
+    tags: [
+      { name: 'scraper', description: 'Endpoints de búsqueda de productos' },
+      { name: 'health', description: 'Estado del servidor' },
+    ],
+  },
+});
+
+app.register(swaggerUi, {
+  routePrefix: '/docs',
+  uiConfig: { docExpansion: 'list', deepLinking: true },
+});
+
 // Health check
-app.get('/health', async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+app.get('/health', {
+  schema: {
+    tags: ['health'],
+    summary: 'Estado del servidor',
+    response: {
+      200: {
+        type: 'object',
+        properties: {
+          status: { type: 'string', example: 'ok' },
+          timestamp: { type: 'string', format: 'date-time' },
+        },
+      },
+    },
+  },
+}, async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
 
 // Registrar rutas de scraping
 app.register(scraperRoutes(searchProductsUseCase));

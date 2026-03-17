@@ -1,4 +1,4 @@
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { FastifyInstance, FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 
 import { SearchProductsUseCase } from '../../application';
 import { SearchProductsSchema } from '../schemas';
@@ -9,13 +9,78 @@ import {
   ParsingError,
 } from '../../domain';
 
+const productSchema = {
+  type: 'object',
+  properties: {
+    codigo:         { type: 'string' },
+    marca:          { type: 'string' },
+    rubro:          { type: 'string' },
+    nombre:         { type: 'string' },
+    porcentajeIVA:  { type: 'number' },
+    precio:         { type: 'number' },
+    foto:           { type: 'string', nullable: true },
+    descuento:      { type: 'number' },
+    costo:          { type: 'number' },
+    precioSugerido: { type: 'number' },
+  },
+};
+
+const errorSchema = {
+  type: 'object',
+  properties: {
+    error:   { type: 'string' },
+    message: { type: 'string' },
+  },
+};
+
+const searchProductsRouteSchema = {
+  tags: ['scraper'],
+  summary: 'Buscar productos en el catálogo del proveedor',
+  body: {
+    type: 'object',
+    properties: {
+      codigoAuto:        { type: 'string', maxLength: 200, default: '', description: 'Código del vehículo' },
+      marcaId:           { type: 'string', maxLength: 10,  default: '', description: 'ID de la marca' },
+      rubroId:           { type: 'string', maxLength: 10,  default: '', description: 'ID del rubro' },
+      cantidadRenglones: { type: 'integer', minimum: 1, maximum: 500, default: 50, description: 'Cantidad máxima de resultados' },
+    },
+  },
+  response: {
+    200: {
+      description: 'Búsqueda exitosa',
+      type: 'object',
+      properties: {
+        params:          { type: 'object' },
+        totalProductos:  { type: 'integer' },
+        productos:       { type: 'array', items: productSchema },
+      },
+    },
+    400: { description: 'Parámetros inválidos',           ...errorSchema },
+    401: { description: 'Error de autenticación',         ...errorSchema },
+    502: { description: 'Error del proveedor o parsing',  ...errorSchema },
+    500: { description: 'Error interno del servidor',     ...errorSchema },
+  },
+};
+
 /**
  * Registra las rutas de scraping de productos como plugin Fastify.
  */
 export function scraperRoutes(useCase: SearchProductsUseCase) {
   return async function (fastify: FastifyInstance): Promise<void> {
+    // Unifica el formato de errores de validación de schema con los de Zod
+    fastify.setErrorHandler((error: FastifyError, request, reply) => {
+      if (error.validation) {
+        return reply.status(400).send({
+          error: 'Parámetros inválidos',
+          details: error.validation,
+        });
+      }
+      return handleError(error, reply, request.log);
+    });
+
     fastify.post(
       '/scraper/productos',
+      { schema: searchProductsRouteSchema },
       async (request: FastifyRequest, reply: FastifyReply) => {
         try {
           // 1. Validar body
