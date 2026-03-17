@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Scraper Repuestos API",
+    "description": "API REST para scraping de catálogos de proveedores de repuestos automotor.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica que el servidor esté corriendo."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"status\": \"ok\",\n  \"timestamp\": \"2024-01-01T00:00:00.000Z\"\n}"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Scraper",
+      "item": [
+        {
+          "name": "Buscar productos",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/scraper/productos",
+              "host": ["{{baseUrl}}"],
+              "path": ["scraper", "productos"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigoAuto\": \"\",\n  \"marcaId\": \"\",\n  \"rubroId\": \"\",\n  \"cantidadRenglones\": 50\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Busca productos en el catálogo del proveedor Ramos.\n\n**Campos del body:**\n- `codigoAuto` (string): Código del vehículo (max 200 chars)\n- `marcaId` (string): ID de la marca (max 10 chars)\n- `rubroId` (string): ID del rubro (max 10 chars)\n- `cantidadRenglones` (integer, 1-500): Cantidad máxima de resultados"
+          },
+          "response": [
+            {
+              "name": "200 - Búsqueda exitosa",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"params\": {\n    \"codigoAuto\": \"\",\n    \"marcaId\": \"\",\n    \"rubroId\": \"\",\n    \"cantidadRenglones\": 50\n  },\n  \"totalProductos\": 1,\n  \"productos\": [\n    {\n      \"codigo\": \"ABC123\",\n      \"marca\": \"Toyota\",\n      \"rubro\": \"Filtros\",\n      \"nombre\": \"Filtro de aceite\",\n      \"porcentajeIVA\": 21,\n      \"precio\": 1500.00,\n      \"foto\": null,\n      \"descuento\": 55,\n      \"costo\": 675.00,\n      \"precioSugerido\": 1800.00\n    }\n  ]\n}"
+            },
+            {
+              "name": "400 - Parámetros inválidos",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Parámetros inválidos\",\n  \"details\": {}\n}"
+            },
+            {
+              "name": "401 - Error de autenticación",
+              "status": "Unauthorized",
+              "code": 401,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Error de autenticación\",\n  \"message\": \"No se pudo iniciar sesión con el proveedor\"\n}"
+            },
+            {
+              "name": "502 - Error del proveedor",
+              "status": "Bad Gateway",
+              "code": 502,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Error del proveedor\",\n  \"message\": \"El proveedor no respondió correctamente\"\n}"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -82,6 +82,13 @@ npm start
 
 ## API
 
+La documentación interactiva está disponible en **`/docs`** (Swagger UI) una vez levantado el servidor.
+
+También podés importar la colección de Postman incluida en el repo:
+`scraper-repuestos.postman_collection.json`
+
+> La variable `baseUrl` viene configurada en `http://localhost:3000`. Podés crear un environment en Postman para apuntar a otros ambientes.
+
 ### Health check
 
 ```
