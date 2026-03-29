@@ -7,7 +7,7 @@
   {
     "marcaId": 2,
     "marcaName": "AF CABLES",
-    "marcaHabilitado": true
+    "marcaHabilitado": false
   },
   {
     "marcaId": 3,
@@ -262,6 +262,11 @@
   {
     "marcaId": 1000,
     "marcaName": "SIN MARCA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 1001,
+    "marcaName": "Cofap",
     "marcaHabilitado": true
   }
 ]
