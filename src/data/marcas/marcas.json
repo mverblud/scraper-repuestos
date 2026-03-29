@@ -1,0 +1,272 @@
+[
+  {
+    "marcaId": 1,
+    "marcaName": "ADON",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 2,
+    "marcaName": "AF CABLES",
+    "marcaHabilitado": false
+  },
+  {
+    "marcaId": 3,
+    "marcaName": "APEX",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 4,
+    "marcaName": "BRK (IMPORTADO)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 5,
+    "marcaName": "CEPERGOM",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 6,
+    "marcaName": "CORVEN",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 7,
+    "marcaName": "CRAVERO (NACIONAL)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 8,
+    "marcaName": "DAUER",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 9,
+    "marcaName": "DEXCO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 10,
+    "marcaName": "DIMET",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 11,
+    "marcaName": "DINAMARCA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 12,
+    "marcaName": "DS SUSPENSION",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 13,
+    "marcaName": "EUROMOTOR",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 14,
+    "marcaName": "FAREPA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 15,
+    "marcaName": "FRENOS SILENT",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 16,
+    "marcaName": "FTE (ORIGINAL)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 17,
+    "marcaName": "GAMBINA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 18,
+    "marcaName": "HELIODINO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 19,
+    "marcaName": "HIPPER FREIOS",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 20,
+    "marcaName": "HUTCHINSON",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 21,
+    "marcaName": "ICSA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 22,
+    "marcaName": "IMPORTADO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 23,
+    "marcaName": "IR ARGENTINA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 24,
+    "marcaName": "IR ESPAÑA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 26,
+    "marcaName": "LEO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 27,
+    "marcaName": "LIFTGATE",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 28,
+    "marcaName": "LITTON (NA)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 29,
+    "marcaName": "LITTON (ULTRA PAD)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 30,
+    "marcaName": "LUGA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 31,
+    "marcaName": "MARIN (NACIONAL)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 32,
+    "marcaName": "ML GOMA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 34,
+    "marcaName": "NACIONAL",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 37,
+    "marcaName": "PHALES",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 38,
+    "marcaName": "PINTARELLI",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 39,
+    "marcaName": "PRUYER PARTS",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 40,
+    "marcaName": "RECORD (IMPORTADO)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 41,
+    "marcaName": "REMSA (ESPAÑA)",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 42,
+    "marcaName": "RESORTES CAR",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 43,
+    "marcaName": "RODA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 44,
+    "marcaName": "RODAX",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 45,
+    "marcaName": "ROLL",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 46,
+    "marcaName": "SADAR",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 48,
+    "marcaName": "TRINTER",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 49,
+    "marcaName": "VALEO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 50,
+    "marcaName": "VIEMAR",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 51,
+    "marcaName": "DUPLA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 52,
+    "marcaName": "SADAR REPUESTOS",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 53,
+    "marcaName": "OS IMPORTADA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 54,
+    "marcaName": "GRZ METAL",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 55,
+    "marcaName": "GFA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 56,
+    "marcaName": "IMBASA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 57,
+    "marcaName": "IRAUTO",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 1000,
+    "marcaName": "SIN MARCA",
+    "marcaHabilitado": true
+  },
+  {
+    "marcaId": 1001,
+    "marcaName": "Cofap",
+    "marcaHabilitado": true
+  }
+]

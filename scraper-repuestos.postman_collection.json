@@ -92,6 +92,174 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Marcas",
+      "item": [
+        {
+          "name": "Listar todas las marcas",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/marcas",
+              "host": ["{{baseUrl}}"],
+              "path": ["marcas"]
+            },
+            "description": "Retorna el listado completo de marcas."
+          },
+          "response": [
+            {
+              "name": "200 - Lista de marcas",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "[\n  { \"marcaId\": 1, \"marcaName\": \"TOYOTA\", \"marcaHabilitado\": true },\n  { \"marcaId\": 2, \"marcaName\": \"FORD\",   \"marcaHabilitado\": false }\n]"
+            }
+          ]
+        },
+        {
+          "name": "Obtener marca por ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/marcas/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["marcas", "1"]
+            },
+            "description": "Retorna una marca específica por su ID."
+          },
+          "response": [
+            {
+              "name": "200 - Marca encontrada",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"marcaId\": 1, \"marcaName\": \"TOYOTA\", \"marcaHabilitado\": true }"
+            },
+            {
+              "name": "404 - No encontrada",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"No encontrado\",\n  \"message\": \"Marca con id 1 no encontrada\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Crear marca",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/marcas",
+              "host": ["{{baseUrl}}"],
+              "path": ["marcas"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marcaName\": \"HONDA\",\n  \"marcaHabilitado\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Crea una nueva marca.\n\n**Campos:**\n- `marcaName` (string, requerido): Nombre de la marca (max 100 chars)\n- `marcaHabilitado` (boolean, opcional): Default `true`"
+          },
+          "response": [
+            {
+              "name": "201 - Marca creada",
+              "status": "Created",
+              "code": 201,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"marcaId\": 66, \"marcaName\": \"HONDA\", \"marcaHabilitado\": true }"
+            },
+            {
+              "name": "400 - Parámetros inválidos",
+              "status": "Bad Request",
+              "code": 400,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Parámetros inválidos\",\n  \"details\": { \"marcaName\": [\"marcaName es requerido\"] }\n}"
+            },
+            {
+              "name": "409 - Conflicto",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Conflicto\",\n  \"message\": \"Ya existe una marca con el nombre \\\"HONDA\\\"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Actualizar marca",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/marcas/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["marcas", "1"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"marcaName\": \"TOYOTA ACTUALIZADO\",\n  \"marcaHabilitado\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "description": "Actualiza parcialmente una marca. Todos los campos son opcionales."
+          },
+          "response": [
+            {
+              "name": "200 - Marca actualizada",
+              "status": "OK",
+              "code": 200,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{ \"marcaId\": 1, \"marcaName\": \"TOYOTA ACTUALIZADO\", \"marcaHabilitado\": false }"
+            },
+            {
+              "name": "404 - No encontrada",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"No encontrado\",\n  \"message\": \"Marca con id 1 no encontrada\"\n}"
+            },
+            {
+              "name": "409 - Conflicto",
+              "status": "Conflict",
+              "code": 409,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"Conflicto\",\n  \"message\": \"Ya existe una marca con el nombre \\\"TOYOTA ACTUALIZADO\\\"\"\n}"
+            }
+          ]
+        },
+        {
+          "name": "Eliminar marca",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/marcas/1",
+              "host": ["{{baseUrl}}"],
+              "path": ["marcas", "1"]
+            },
+            "description": "Elimina una marca por su ID."
+          },
+          "response": [
+            {
+              "name": "204 - Eliminada",
+              "status": "No Content",
+              "code": 204,
+              "header": [],
+              "body": ""
+            },
+            {
+              "name": "404 - No encontrada",
+              "status": "Not Found",
+              "code": 404,
+              "header": [{ "key": "Content-Type", "value": "application/json" }],
+              "body": "{\n  \"error\": \"No encontrado\",\n  \"message\": \"Marca con id 1 no encontrada\"\n}"
+            }
+          ]
+        }
+      ]
     }
   ]
 }
