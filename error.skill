@@ -1,0 +1,468 @@
+---
+name: Error Handling Pattern
+description: Patrón centralizado para mapeo de errores de dominio a HTTP responses
+applyTo:
+  - src/interface/routes/**
+  - src/interface/middleware/**
+tags:
+  - error-handling
+  - middleware
+  - centralized
+  - fastify
+languages:
+  - typescript
+---
+
+# Error Handling Skill
+
+## Propósito
+
+Proporcionar un patrón **centralizado** y **reutilizable** para manejar todos los errores de dominio y mapearlos a respuestas HTTP apropiadas.
+
+**Problema que resuelve:**
+- ❌ Duplicación de lógica `handleError()` en múltiples rutas
+- ❌ Inconsistencia en formato de error responses
+- ❌ Difícil agregar nuevos tipos de error
+
+**Solución:**
+- ✅ Una sola clase `ErrorHandler` que todos usan
+- ✅ Formato consistente de error responses
+- ✅ Fácil de extender con nuevos errores
+
+---
+
+## Cuando Usarlo
+
+**Úsalo en:**
+- ✅ Rutas HTTP (controllers)
+- ✅ Middleware personalizado
+- ✅ Endpoints que lanzan excepciones de dominio
+
+**No lo uses para:**
+- ❌ Lógica de negocio (eso va en services/domain)
+- ❌ Acceso a datos (eso va en repositories)
+
+---
+
+## Implementación
+
+### 1. Crear ErrorHandler Centralizado
+
+**Archivo:** `src/interface/middleware/errorHandler.ts`
+
+```typescript
+import { FastifyReply, FastifyRequest } from 'fastify';
+
+/**
+ * Importa TODOS los errores de dominio que tu app puede lanzar
+ */
+import {
+  LoginError,
+  ProviderError,
+  InvalidParamsError,
+  ParsingError,
+  NotFoundError,
+  ConflictError,
+  // ... agregar nuevos aquí
+} from '../../domain/errors';
+
+/**
+ * Clase centralizada para manejar errores.
+ *
+ * Responsabilidades:
+ * 1. Mapear errores de dominio → códigos HTTP
+ * 2. Retornar respuestas consistentes
+ * 3. Loguear errores apropiadamente
+ */
+export class ErrorHandler {
+  /**
+   * Maneja cualquier error y retorna respuesta HTTP apropiada.
+   *
+   * @param error - Error desconocido (puede ser cualquier tipo)
+   * @param reply - Response object de Fastify
+   * @param log - Logger de Fastify
+   * @returns Response con status code y body apropiados
+   */
+  static handle(
+    error: unknown,
+    reply: FastifyReply,
+    log: FastifyRequest['log'],
+  ): FastifyReply {
+    // ────────────────────────────────────────────────────────────────
+    // ERRORES DE CLIENTE (4xx)
+    // ────────────────────────────────────────────────────────────────
+
+    if (error instanceof InvalidParamsError) {
+      return reply.status(400).send({
+        error: 'Parámetros inválidos',
+        message: error.message,
+      });
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ERRORES DE AUTENTICACIÓN (401)
+    // ────────────────────────────────────────────────────────────────
+
+    if (error instanceof LoginError) {
+      log.warn({ err: error }, 'Error de autenticación con proveedor');
+      return reply.status(401).send({
+        error: 'Error de autenticación',
+        message: error.message,
+      });
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ERRORES DE RECURSO NO ENCONTRADO (404)
+    // ────────────────────────────────────────────────────────────────
+
+    if (error instanceof NotFoundError) {
+      return reply.status(404).send({
+        error: 'No encontrado',
+        message: error.message,
+      });
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ERRORES DE CONFLICTO (409)
+    // Ej: Intentar crear un recurso que ya existe
+    // ────────────────────────────────────────────────────────────────
+
+    if (error instanceof ConflictError) {
+      return reply.status(409).send({
+        error: 'Conflicto',
+        message: error.message,
+      });
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ERRORES DEL SERVIDOR (5xx)
+    // ────────────────────────────────────────────────────────────────
+
+    if (error instanceof ProviderError) {
+      log.error({ err: error }, 'Error del proveedor externo');
+      return reply.status(502).send({
+        error: 'Error del proveedor',
+        message: error.message,
+      });
+    }
+
+    if (error instanceof ParsingError) {
+      log.error({ err: error }, 'Error al parsear respuesta del proveedor');
+      return reply.status(502).send({
+        error: 'Error al interpretar respuesta del proveedor',
+        message: error.message,
+      });
+    }
+
+    // ────────────────────────────────────────────────────────────────
+    // ERROR GENÉRICO / NO CONTROLADO (500)
+    // ────────────────────────────────────────────────────────────────
+
+    log.error({ err: error }, 'Error interno no controlado');
+    return reply.status(500).send({
+      error: 'Error interno del servidor',
+      message: 'Ocurrió un error inesperado',
+    });
+  }
+}
+```
+
+### 2. Exportar desde Middleware Index
+
+**Archivo:** `src/interface/middleware/index.ts`
+
+```typescript
+export { ErrorHandler } from './errorHandler';
+export { requestLogger, registerRequestLogger } from './requestLogger';
+```
+
+### 3. Usar en Rutas
+
+**Ejemplo 1: Route simple**
+
+```typescript
+import { ErrorHandler } from '../middleware';
+import { SearchProductsUseCase } from '../../application';
+
+export function scraperRoutes(useCase: SearchProductsUseCase) {
+  return async function (fastify: FastifyInstance): Promise<void> {
+    fastify.post('/scraper/productos', async (request, reply) => {
+      try {
+        // Lógica que puede lanzar excepciones
+        const result = await useCase.execute(request.body);
+        return reply.status(200).send(result);
+      } catch (error) {
+        // ✅ Usar ErrorHandler centralizado
+        return ErrorHandler.handle(error, reply, request.log);
+      }
+    });
+  };
+}
+```
+
+**Ejemplo 2: Con validación Zod**
+
+```typescript
+import { ErrorHandler } from '../middleware';
+import { CreateMarcaSchema } from '../schemas';
+import { MarcasService } from '../../application';
+
+export function marcasRoutes(service: MarcasService) {
+  return async function (fastify: FastifyInstance): Promise<void> {
+    fastify.post('/marcas', async (request, reply) => {
+      try {
+        // Validar con Zod
+        const parsed = CreateMarcaSchema.safeParse(request.body);
+        if (!parsed.success) {
+          return reply.status(400).send({
+            error: 'Parámetros inválidos',
+            details: parsed.error.flatten().fieldErrors,
+          });
+        }
+
+        // Ejecutar service (puede lanzar errores de dominio)
+        const marca = await service.create(parsed.data);
+        return reply.status(201).send(marca);
+      } catch (error) {
+        // ✅ ErrorHandler maneja NotFoundError, ConflictError, etc.
+        return ErrorHandler.handle(error, reply, request.log);
+      }
+    });
+  };
+}
+```
+
+---
+
+## Extender para Nuevos Errores
+
+### Paso 1: Crear Error de Dominio
+
+**Archivo:** `src/domain/errors/ProductNotAvailableError.ts`
+
+```typescript
+export class ProductNotAvailableError extends Error {
+  constructor(codigo: string) {
+    super(`Producto ${codigo} no disponible en stock`);
+    this.name = 'ProductNotAvailableError';
+  }
+}
+```
+
+### Paso 2: Exportar en Index
+
+**Archivo:** `src/domain/errors/index.ts`
+
+```typescript
+export { LoginError } from './LoginError';
+export { NotFoundError } from './NotFoundError';
+export { ProductNotAvailableError } from './ProductNotAvailableError';
+// ... más
+```
+
+### Paso 3: Agregar en ErrorHandler
+
+**Archivo:** `src/interface/middleware/errorHandler.ts`
+
+```typescript
+import { ProductNotAvailableError } from '../../domain/errors';
+
+export class ErrorHandler {
+  static handle(
+    error: unknown,
+    reply: FastifyReply,
+    log: FastifyRequest['log'],
+  ): FastifyReply {
+    // ... errores anteriores ...
+
+    // ✅ NUEVO: Mapear ProductNotAvailableError
+    if (error instanceof ProductNotAvailableError) {
+      return reply.status(404).send({
+        error: 'Producto no disponible',
+        message: error.message,
+      });
+    }
+
+    // ... resto del código ...
+  }
+}
+```
+
+---
+
+## Testing
+
+### Unit Test del ErrorHandler
+
+```typescript
+import { ErrorHandler } from '../middleware/errorHandler';
+import { NotFoundError, ConflictError, LoginError } from '../../domain/errors';
+
+describe('ErrorHandler', () => {
+  let mockReply: any;
+  let mockLog: any;
+
+  beforeEach(() => {
+    mockReply = {
+      status: jest.fn().mockReturnThis(),
+      send: jest.fn().mockReturnThis(),
+    };
+    mockLog = {
+      warn: jest.fn(),
+      error: jest.fn(),
+      info: jest.fn(),
+    };
+  });
+
+  describe('NotFoundError → 404', () => {
+    it('debe retornar 404 con mensaje correcto', () => {
+      const error = new NotFoundError('Marca no encontrada');
+
+      ErrorHandler.handle(error, mockReply, mockLog);
+
+      expect(mockReply.status).toHaveBeenCalledWith(404);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'No encontrado',
+        message: 'Marca no encontrada',
+      });
+    });
+  });
+
+  describe('ConflictError → 409', () => {
+    it('debe retornar 409 para conflictos', () => {
+      const error = new ConflictError('Nombre ya existe');
+
+      ErrorHandler.handle(error, mockReply, mockLog);
+
+      expect(mockReply.status).toHaveBeenCalledWith(409);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Conflicto',
+        message: 'Nombre ya existe',
+      });
+    });
+  });
+
+  describe('LoginError → 401', () => {
+    it('debe loguear warning y retornar 401', () => {
+      const error = new LoginError('Credenciales inválidas');
+
+      ErrorHandler.handle(error, mockReply, mockLog);
+
+      expect(mockLog.warn).toHaveBeenCalled();
+      expect(mockReply.status).toHaveBeenCalledWith(401);
+    });
+  });
+
+  describe('Error desconocido → 500', () => {
+    it('debe retornar 500 para errores genéricos', () => {
+      const error = new Error('Algo salió mal');
+
+      ErrorHandler.handle(error, mockReply, mockLog);
+
+      expect(mockLog.error).toHaveBeenCalled();
+      expect(mockReply.status).toHaveBeenCalledWith(500);
+      expect(mockReply.send).toHaveBeenCalledWith({
+        error: 'Error interno del servidor',
+        message: 'Ocurrió un error inesperado',
+      });
+    });
+  });
+});
+```
+
+### Integration Test de Endpoint
+
+```typescript
+import { build } from '../app'; // tu setup de Fastify
+
+describe('Endpoint con ErrorHandler', () => {
+  let app: any;
+
+  beforeAll(async () => {
+    app = await build();
+  });
+
+  afterAll(async () => {
+    await app.close();
+  });
+
+  it('GET /marcas/:id retorna 404 si no existe', async () => {
+    const response = await app.inject({
+      method: 'GET',
+      url: '/marcas/9999',
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(JSON.parse(response.body)).toEqual({
+      error: 'No encontrado',
+      message: expect.any(String),
+    });
+  });
+
+  it('POST /marcas retorna 409 si ya existe', async () => {
+    // Primero crear una marca
+    await app.inject({
+      method: 'POST',
+      url: '/marcas',
+      payload: { marcaName: 'TOYOTA' },
+    });
+
+    // Intentar crear la misma
+    const response = await app.inject({
+      method: 'POST',
+      url: '/marcas',
+      payload: { marcaName: 'TOYOTA' },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(JSON.parse(response.body).error).toBe('Conflicto');
+  });
+});
+```
+
+---
+
+## Checklist de Implementación
+
+- [ ] Crear `src/interface/middleware/errorHandler.ts`
+- [ ] Importar todos los errores de dominio
+- [ ] Mapear cada error a código HTTP + formato de respuesta
+- [ ] Loguear errores críticos (401, 502, 500)
+- [ ] Exportar en `src/interface/middleware/index.ts`
+- [ ] Usar `ErrorHandler.handle()` en todas las rutas
+- [ ] Remover funciones `handleError()` locales
+- [ ] Escribir unit tests
+- [ ] Verificar integration tests
+- [ ] Documentar en README
+
+---
+
+## Tablas de Referencia
+
+### Mapeo de Errores → HTTP
+
+| Error | HTTP | Razón |
+|-------|------|-------|
+| `InvalidParamsError` | 400 | Validación falló |
+| `LoginError` | 401 | No autenticado |
+| `NotFoundError` | 404 | Recurso no existe |
+| `ConflictError` | 409 | Conflicto (ej: duplicado) |
+| `ProviderError` | 502 | Proveedor down |
+| `ParsingError` | 502 | Respuesta inesperada |
+| Genérico `Error` | 500 | Error no controlado |
+
+### Logging Recomendado
+
+| Tipo | Método | Ejemplo |
+|------|--------|---------|
+| Éxito | `info` | `request.log.info({ marca }, 'Marca creada')` |
+| Advertencia | `warn` | `request.log.warn({ attempts: 3 }, 'Login repetido')` |
+| Error | `error` | `request.log.error({ err }, 'Provider falla')` |
+
+---
+
+## Referencias
+
+- [Fastify Error Handling](https://www.fastify.io/docs/latest/Guides/migration-guide-v3/#error-handling)
+- [Domain Errors Pattern](https://blog.cleancoder.com/uncle-bob/2016/01/04/ALittleArchitecture.html)
+- [HTTP Status Codes](https://httpwg.org/specs/rfc9110.html#overview.of.status.codes)

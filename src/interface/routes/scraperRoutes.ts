@@ -2,12 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply, FastifyError } from 'fas
 
 import { SearchProductsUseCase } from '../../application';
 import { SearchProductsSchema } from '../schemas';
-import {
-  LoginError,
-  ProviderError,
-  InvalidParamsError,
-  ParsingError,
-} from '../../domain';
+import { InvalidParamsError } from '../../domain';
+import { ErrorHandler } from '../middleware';
 
 const productSchema = {
   type: 'object',
@@ -75,7 +71,7 @@ export function scraperRoutes(useCase: SearchProductsUseCase) {
           details: error.validation,
         });
       }
-      return handleError(error, reply, request.log);
+      return ErrorHandler.handle(error, reply, request.log);
     });
 
     fastify.post(
@@ -106,56 +102,9 @@ export function scraperRoutes(useCase: SearchProductsUseCase) {
           // 3. Retornar respuesta exitosa
           return reply.status(200).send(result);
         } catch (error) {
-          return handleError(error, reply, request.log);
+          return ErrorHandler.handle(error, reply, request.log);
         }
       },
     );
   };
-}
-
-/**
- * Mapea errores de dominio a códigos HTTP apropiados.
- */
-function handleError(
-  error: unknown,
-  reply: FastifyReply,
-  log: FastifyRequest['log'],
-): FastifyReply {
-  if (error instanceof LoginError) {
-    log.warn({ err: error }, 'Error de autenticación con proveedor');
-    return reply.status(401).send({
-      error: 'Error de autenticación',
-      message: error.message,
-    });
-  }
-
-  if (error instanceof InvalidParamsError) {
-    return reply.status(400).send({
-      error: 'Parámetros inválidos',
-      message: error.message,
-    });
-  }
-
-  if (error instanceof ProviderError) {
-    log.error({ err: error }, 'Error del proveedor');
-    return reply.status(502).send({
-      error: 'Error del proveedor',
-      message: error.message,
-    });
-  }
-
-  if (error instanceof ParsingError) {
-    log.error({ err: error }, 'Error de parsing');
-    return reply.status(502).send({
-      error: 'Error al interpretar respuesta del proveedor',
-      message: error.message,
-    });
-  }
-
-  // Error no controlado
-  log.error({ err: error }, 'Error interno no controlado');
-  return reply.status(500).send({
-    error: 'Error interno del servidor',
-    message: 'Ocurrió un error inesperado',
-  });
 }

@@ -2,7 +2,8 @@ import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 
 import { MarcasService } from '../../application';
 import { CreateMarcaSchema, UpdateMarcaSchema } from '../schemas';
-import { NotFoundError, ConflictError, InvalidParamsError } from '../../domain';
+import { InvalidParamsError } from '../../domain';
+import { ErrorHandler } from '../middleware';
 
 // ─── OpenAPI schemas ────────────────────────────────────────────────────
 
@@ -36,7 +37,7 @@ export function marcasRoutes(service: MarcasService) {
       if ((error as { validation?: unknown }).validation) {
         return reply.status(400).send({ error: 'Parámetros inválidos', details: (error as { validation: unknown }).validation });
       }
-      return handleError(error, reply, request.log);
+      return ErrorHandler.handle(error, reply, request.log);
     });
 
     // GET /marcas
@@ -175,27 +176,4 @@ export function marcasRoutes(service: MarcasService) {
       return reply.status(204).send();
     });
   };
-}
-
-// ─── Error handler ───────────────────────────────────────────────────────
-
-function handleError(
-  error: unknown,
-  reply: FastifyReply,
-  log: FastifyRequest['log'],
-): FastifyReply {
-  if (error instanceof NotFoundError) {
-    return reply.status(404).send({ error: 'No encontrado', message: error.message });
-  }
-
-  if (error instanceof ConflictError) {
-    return reply.status(409).send({ error: 'Conflicto', message: error.message });
-  }
-
-  if (error instanceof InvalidParamsError) {
-    return reply.status(400).send({ error: 'Parámetros inválidos', message: error.message });
-  }
-
-  log.error({ err: error }, 'Error interno no controlado');
-  return reply.status(500).send({ error: 'Error interno del servidor', message: 'Ocurrió un error inesperado' });
 }
