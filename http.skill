@@ -1,0 +1,669 @@
+---
+name: HTTP Routes & Controller Pattern
+description: Patrón de rutas HTTP, controladores y middlewares en Fastify
+applyTo:
+  - src/interface/routes/**
+  - src/server.ts
+tags:
+  - http
+  - routes
+  - controllers
+  - fastify
+languages:
+  - typescript
+---
+
+# HTTP Routes & Controller Skill
+
+## Propósito
+
+Establecer un patrón **consistente** para:
+1. Organizar rutas HTTP en plugins Fastify
+2. Mantener controladores limpios y enfocados
+3. Usar middlewares para concerns transversales
+4. Documentar endpoints con OpenAPI/Swagger
+
+**Problemas que resuelve:**
+- ❌ Lógica de negocio en controllers (debe ir en services)
+- ❌ Middleware duplicado en múltiples rutas
+- ❌ Endpoints sin documentación
+- ❌ Manejo de errores inconsistente
+
+**Solución:**
+- ✅ Controllers solo traducen HTTP ↔ Domain
+- ✅ Middlewares centralizados (logging, CORS, etc.)
+- ✅ Documentación OpenAPI detallada
+- ✅ Manejo de errores uniforme
+
+---
+
+## Arquitectura
+
+```
+Request HTTP
+    ↓
+Middlewares [[CORS, Logging, Auth, etc.]]
+    ↓
+Route Handler (Controller)
+  ├─ 1. Validar input (Zod + DTO)
+  ├─ 2. Llamar use case / service
+  ├─ 3. Mapear respuesta a DTO
+  └─ 4. Retornar HTTP response
+    ↓
+ErrorHandler [[Si hay excepción]]
+    ↓
+Response HTTP
+```
+
+---
+
+## Implementación
+
+### 1. Estructura de Carpetas
+
+```
+src/interface/
+├── routes/              # 🔗 Endpoints organizados por dominio
+│   ├── index.ts
+│   ├── marcasRoutes.ts
+│   └── scraperRoutes.ts
+├── middleware/          # 📦 Middlewares centralizados
+│   ├── index.ts
+│   ├── errorHandler.ts
+│   └── requestLogger.ts
+├── schemas/             # ✅ Validación
+│   ├── index.ts
+│   ├── MarcaSchema.ts
+│   └── SearchProductsSchema.ts
+├── dtos/                # 📋 Data Transfer Objects
+│   ├── index.ts
+│   ├── MarcasDTO.ts
+│   └── SearchProductsDTO.ts
+└── index.ts             # Exportar todo
+```
+
+### 2. Crear Route Plugin (Plugin Pattern)
+
+**Archivo:** `src/interface/routes/marcasRoutes.ts`
+
+```typescript
+import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+
+import { MarcasService } from '../../application';
+import { CreateMarcaSchema, UpdateMarcaSchema } from '../schemas';
+import { CreateMarcaRequestDTO, UpdateMarcaRequestDTO, MarcaDTO } from '../dtos';
+import { ErrorHandler } from '../middleware';
+
+/**
+ * Plugin Fastify que registra todas las rutas de Marcas.
+ *
+ * VENTAJAS del plugin pattern:
+ * - Agrupación lógica de endpoints por dominio
+ * - Reutilizable (fácil extraer a microservicio después)
+ * - Inyección de dependencias clara (service como parámetro)
+ * - Fácil testear en aislamiento
+ *
+ * Uso en server.ts:
+ *   app.register(marcasRoutes(service))
+ */
+export function marcasRoutes(service: MarcasService) {
+  /**
+   * Función plugin que Fastify registra.
+   *
+   * @param fastify - Instancia de Fastify
+   */
+  return async function (fastify: FastifyInstance): Promise<void> {
+    // ════════════════════════════════════════════════════════════════
+    // ERROR HANDLER CENTRALIZADO (override global si es necesario)
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.setErrorHandler((error, request, reply) => {
+      // Validación de Fastify schema (diferente a Zod)
+      if ((error as { validation?: unknown }).validation) {
+        return reply.status(400).send({
+          error: 'Parámetros inválidos',
+          details: (error as { validation: unknown }).validation,
+        });
+      }
+      // Delegar a handler centralizado
+      return ErrorHandler.handle(error, reply, request.log);
+    });
+
+    // ════════════════════════════════════════════════════════════════
+    // GET /marcas - Listar todas las marcas
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.get<{ Response: MarcaDTO[] }>(
+      '/marcas',
+      {
+        schema: {
+          tags: ['marcas'],
+          summary: 'Listar todas las marcas',
+          description: 'Retorna una lista de todas las marcas de repuestos disponibles.',
+          response: {
+            200: {
+              description: 'Lista de marcas',
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  marcaId: { type: 'integer', example: 1 },
+                  marcaName: { type: 'string', example: 'TOYOTA' },
+                  marcaHabilitado: { type: 'boolean', example: true },
+                },
+              },
+            },
+            500: {
+              description: 'Error interno del servidor',
+              type: 'object',
+              properties: {
+                error: { type: 'string' },
+                message: { type: 'string' },
+              },
+            },
+          },
+        },
+      },
+      async (_request, reply) => {
+        try {
+          // ✅ Lógica: Llamar service (no más)
+          const marcas = await service.getAll();
+
+          // ✅ Respuesta tipada
+          return reply.status(200).send(marcas);
+        } catch (error) {
+          // ✅ Usar ErrorHandler centralizado
+          return ErrorHandler.handle(error, reply, _request.log);
+        }
+      }
+    );
+
+    // ════════════════════════════════════════════════════════════════
+    // GET /marcas/:id - Obtener una marca por ID
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.get<{ Params: { id: string }; Response: MarcaDTO }>(
+      '/marcas/:id',
+      {
+        schema: {
+          tags: ['marcas'],
+          summary: 'Obtener una marca por ID',
+          params: {
+            type: 'object',
+            properties: {
+              id: { type: 'integer', example: 1, description: 'ID de la marca' },
+            },
+            required: ['id'],
+          },
+          response: {
+            200: {
+              description: 'Marca encontrada',
+              type: 'object',
+              properties: {
+                marcaId: { type: 'integer' },
+                marcaName: { type: 'string' },
+                marcaHabilitado: { type: 'boolean' },
+              },
+            },
+            400: { description: 'Parámetros inválidos' },
+            404: { description: 'Marca no encontrada' },
+            500: { description: 'Error interno' },
+          },
+        },
+      },
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        try {
+          // ✅ Validar parámetro
+          const id = parseInt(request.params.id, 10);
+          if (isNaN(id)) {
+            return reply.status(400).send({
+              error: 'Parámetros inválidos',
+              message: 'El id debe ser un número entero',
+            });
+          }
+
+          // ✅ Lógica: GetById (service lanza NotFoundError si no existe)
+          const marca = await service.getById(id);
+
+          // ✅ Respuesta
+          return reply.status(200).send(marca);
+        } catch (error) {
+          return ErrorHandler.handle(error, reply, request.log);
+        }
+      }
+    );
+
+    // ════════════════════════════════════════════════════════════════
+    // POST /marcas - Crear una nueva marca
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.post<{ Body: CreateMarcaRequestDTO; Response: MarcaDTO }>(
+      '/marcas',
+      {
+        schema: {
+          tags: ['marcas'],
+          summary: 'Crear una nueva marca',
+          body: {
+            type: 'object',
+            required: ['marcaName'],
+            properties: {
+              marcaName: {
+                type: 'string',
+                maxLength: 100,
+                description: 'Nombre de la marca',
+                example: 'HONDA',
+              },
+              marcaHabilitado: {
+                type: 'boolean',
+                default: true,
+                description: 'Si la marca está habilitada para compra',
+              },
+            },
+          },
+          response: {
+            201: { description: 'Marca creada' },
+            400: { description: 'Parámetros inválidos' },
+            409: { description: 'Marca ya existe' },
+          },
+        },
+      },
+      async (request: FastifyRequest<{ Body: CreateMarcaRequestDTO }>, reply) => {
+        try {
+          // ✅ Validación SIEMPRE con Zod (luego DTO)
+          const parsed = CreateMarcaSchema.safeParse(request.body);
+          if (!parsed.success) {
+            return reply.status(400).send({
+              error: 'Parámetros inválidos',
+              details: parsed.error.flatten().fieldErrors,
+            });
+          }
+
+          // ✅ Tipificar entrada
+          const requestDTO: CreateMarcaRequestDTO = parsed.data;
+
+          // ✅ Lógica: Create (service lanza ConflictError si existe)
+          const marca = await service.create(requestDTO);
+
+          // ✅ Tipificar respuesta
+          const responseDTO: MarcaDTO = marca;
+
+          return reply.status(201).send(responseDTO);
+        } catch (error) {
+          return ErrorHandler.handle(error, reply, request.log);
+        }
+      }
+    );
+
+    // ════════════════════════════════════════════════════════════════
+    // PUT /marcas/:id - Actualizar una marca
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.put<{
+      Params: { id: string };
+      Body: UpdateMarcaRequestDTO;
+      Response: MarcaDTO;
+    }>(
+      '/marcas/:id',
+      {
+        schema: {
+          tags: ['marcas'],
+          summary: 'Actualizar una marca',
+          params: {
+            type: 'object',
+            properties: { id: { type: 'integer' } },
+            required: ['id'],
+          },
+          body: {
+            type: 'object',
+            properties: {
+              marcaName: { type: 'string', maxLength: 100 },
+              marcaHabilitado: { type: 'boolean' },
+            },
+          },
+          response: {
+            200: { description: 'Marca actualizada' },
+            400: { description: 'Parámetros inválidos' },
+            404: { description: 'No encontrada' },
+            409: { description: 'Conflicto' },
+          },
+        },
+      },
+      async (
+        request: FastifyRequest<{
+          Params: { id: string };
+          Body: UpdateMarcaRequestDTO;
+        }>,
+        reply
+      ) => {
+        try {
+          // ✅ Validar param
+          const id = parseInt(request.params.id, 10);
+          if (isNaN(id)) {
+            return reply.status(400).send({
+              error: 'Parámetros inválidos',
+              message: 'El id debe ser un número',
+            });
+          }
+
+          // ✅ Validar body
+          const parsed = UpdateMarcaSchema.safeParse(request.body);
+          if (!parsed.success) {
+            return reply.status(400).send({
+              error: 'Parámetros inválidos',
+              details: parsed.error.flatten().fieldErrors,
+            });
+          }
+
+          const updateDTO: UpdateMarcaRequestDTO = parsed.data;
+
+          // ✅ Lógica
+          const marca = await service.update(id, updateDTO);
+
+          return reply.status(200).send(marca);
+        } catch (error) {
+          return ErrorHandler.handle(error, reply, request.log);
+        }
+      }
+    );
+
+    // ════════════════════════════════════════════════════════════════
+    // DELETE /marcas/:id - Eliminar una marca
+    // ════════════════════════════════════════════════════════════════
+
+    fastify.delete<{ Params: { id: string } }>(
+      '/marcas/:id',
+      {
+        schema: {
+          tags: ['marcas'],
+          summary: 'Eliminar una marca',
+          params: {
+            type: 'object',
+            properties: { id: { type: 'integer' } },
+            required: ['id'],
+          },
+          response: {
+            204: { description: 'Marca eliminada' },
+            400: { description: 'Parámetros inválidos' },
+            404: { description: 'No encontrada' },
+          },
+        },
+      },
+      async (request: FastifyRequest<{ Params: { id: string } }>, reply) => {
+        try {
+          const id = parseInt(request.params.id, 10);
+          if (isNaN(id)) {
+            return reply.status(400).send({
+              error: 'Parámetros inválidos',
+              message: 'El id debe ser un número',
+            });
+          }
+
+          await service.delete(id);
+
+          // ✅ 204 No Content (sin body)
+          return reply.status(204).send();
+        } catch (error) {
+          return ErrorHandler.handle(error, reply, request.log);
+        }
+      }
+    );
+  };
+}
+```
+
+### 3. Registrar Routes en server.ts
+
+**Archivo:** `src/server.ts`
+
+```typescript
+import 'dotenv/config';
+import Fastify from 'fastify';
+import cors from '@fastify/cors';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
+
+import { RamosScraperAdapter, JsonMarcaRepository } from './infrastructure';
+import { SearchProductsUseCase, MarcasService } from './application';
+import { scraperRoutes, marcasRoutes } from './interface/routes';
+import { registerRequestLogger } from './interface/middleware';
+
+// ─── Setup ──────────────────────────────────────────────────────────────
+
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = process.env.HOST || '0.0.0.0';
+
+// ─── Dependencias ───────────────────────────────────────────────────────
+
+const ramosAdapter = new RamosScraperAdapter(/* config */);
+const searchProductsUseCase = new SearchProductsUseCase(ramosAdapter);
+
+const marcaRepository = new JsonMarcaRepository();
+const marcasService = new MarcasService(marcaRepository);
+
+// ─── Fastify App ────────────────────────────────────────────────────────
+
+const app = Fastify({
+  logger: {
+    level: 'info',
+    transport: {
+      target: 'pino-pretty',
+      options: { translateTime: 'HH:MM:ss Z' },
+    },
+  },
+});
+
+// ─── Middlewares ────────────────────────────────────────────────────────
+
+// Logging (entra antes de rutas)
+registerRequestLogger(app);
+
+// CORS
+app.register(cors, {
+  origin: process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',')
+    : ['http://localhost:3000'],
+});
+
+// Swagger/Docs
+app.register(swagger, {
+  openapi: {
+    info: {
+      title: 'Scraper Repuestos API',
+      version: '1.0.0',
+    },
+  },
+});
+
+app.register(swaggerUi, { routePrefix: '/docs' });
+
+// ─── Health Check ───────────────────────────────────────────────────────
+
+app.get('/health', {
+  schema: {
+    tags: ['health'],
+    summary: 'Health check',
+  },
+}, async () => ({ status: 'ok', timestamp: new Date().toISOString() }));
+
+// ─── Routes (Plugins) ───────────────────────────────────────────────────
+
+// ✅ Registrar plugins de rutas
+app.register(scraperRoutes(searchProductsUseCase));
+app.register(marcasRoutes(marcasService));
+
+// ─── Start ──────────────────────────────────────────────────────────────
+
+app.listen({ port: PORT, host: HOST }, (err, address) => {
+  if (err) throw err;
+  console.log(`🚀 Servidor escuchando en ${address}`);
+});
+```
+
+### 4. Exportar Routes Index
+
+**Archivo:** `src/interface/routes/index.ts`
+
+```typescript
+export { scraperRoutes } from './scraperRoutes';
+export { marcasRoutes } from './marcasRoutes';
+```
+
+---
+
+## Response Patterns
+
+### Success Responses
+
+| Operación | Status | Body | Ejemplo |
+|-----------|--------|------|---------|
+| **GET** (lista) | 200 | Array | `[ { marcaId: 1, ... }, ... ]` |
+| **GET** (item) | 200 | Objeto | `{ marcaId: 1, marcaName: "TOYOTA" }` |
+| **POST** | 201 | Objeto creado | `{ marcaId: 99, marcaName: "NEW" }` |
+| **PUT** | 200 | Objeto actualizado | `{ marcaId: 1, marcaName: "UPDATED" }` |
+| **DELETE** | 204 | (vacío) | - |
+
+### Error Responses
+
+Todas las respuestas de error siguen este formato:
+
+```typescript
+{
+  error: string;        // Categoría de error (corta)
+  message: string;      // Detalle del error
+  details?: any;        // Optional: detalles específicos (ej: errores de validación)
+}
+```
+
+Ejemplos:
+
+```json
+// 400 Bad Request
+{
+  "error": "Parámetros inválidos",
+  "details": {
+    "marcaName": ["El nombre no puede estar vacío"]
+  }
+}
+
+// 401 Unauthorized
+{
+  "error": "Error de autenticación",
+  "message": "Credenciales inválidas o fallo en autenticación"
+}
+
+// 404 Not Found
+{
+  "error": "No encontrado",
+  "message": "Marca con id 999 no encontrada"
+}
+
+// 409 Conflict
+{
+  "error": "Conflicto",
+  "message": "Ya existe una marca con el nombre \"TOYOTA\""
+}
+
+// 500 Internal Server Error
+{
+  "error": "Error interno del servidor",
+  "message": "Ocurrió un error inesperado"
+}
+```
+
+---
+
+## Checklist: Nuevas Rutas
+
+- [ ] Crear plugin en `src/interface/routes/`
+- [ ] Definir DTOs en `src/interface/dtos/`
+- [ ] Definir schema Zod en `src/interface/schemas/`
+- [ ] Implementar operaciones CRUD (GET, POST, PUT, DELETE)
+- [ ] Usar `ErrorHandler.handle()` en cada endpoint
+- [ ] Documentar con OpenAPI schema
+- [ ] Tipificar request/response con genéricos Fastify
+- [ ] Registrar plugin en `server.ts`
+- [ ] Exportar en `interface/routes/index.ts`
+- [ ] Escribir integration tests
+- [ ] Probar en Postman/Bruno
+- [ ] Validar documentación Swagger en `/docs`
+
+---
+
+## Mejoras Futuras
+
+### 1. Validador Helper
+
+```typescript
+// src/interface/utils/validation.ts
+export async function validateBody<T>(
+  schema: z.Schema<T>,
+  body: unknown,
+  reply: FastifyReply,
+): Promise<T | null> {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    reply.status(400).send({
+      error: 'Parámetros inválidos',
+      details: parsed.error.flatten().fieldErrors,
+    });
+    return null;
+  }
+  return parsed.data;
+}
+
+// Usar en routes
+const dto = await validateBody(CreateMarcaSchema, request.body, reply);
+if (!dto) return;
+```
+
+### 2. Controller Class (si crece)
+
+```typescript
+export class MarcasController {
+  constructor(private readonly service: MarcasService) {}
+
+  async getAll(request: FastifyRequest, reply: FastifyReply) {
+    try {
+      const marcas = await this.service.getAll();
+      return reply.send(marcas);
+    } catch (error) {
+      return ErrorHandler.handle(error, reply, request.log);
+    }
+  }
+
+  async getById(request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) {
+    // ... similar
+  }
+}
+```
+
+### 3. Middleware Custom
+
+```typescript
+// src/interface/middleware/authMiddleware.ts
+export async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
+  const token = request.headers.authorization?.replace('Bearer ', '');
+  if (!token) {
+    return reply.status(401).send({ error: 'No authorized' });
+  }
+  // Validar token
+  request.user = decodeToken(token);
+}
+
+// Usar en routes
+fastify.get('/marked-secure', {
+  onRequest: [authMiddleware],
+}, async (request, reply) => {
+  // Solo alcanzable si token válido
+});
+```
+
+---
+
+## Referencias
+
+- [Fastify Plugins](https://www.fastify.io/docs/latest/Guides/Plugins-Guide/)
+- [Fastify Hooks](https://www.fastify.io/docs/latest/Guides/Hooks/)
+- [Fastify Request/Reply](https://www.fastify.io/docs/latest/Reference/Request/)
+- [OpenAPI Specification](https://spec.openapis.org/oas/latest.html)
+- [REST Best Practices](https://restfulapi.net/)

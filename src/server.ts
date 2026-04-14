@@ -7,6 +7,7 @@ import swaggerUi from '@fastify/swagger-ui';
 import { RamosScraperAdapter, RamosConfig, JsonMarcaRepository } from './infrastructure';
 import { SearchProductsUseCase, MarcasService } from './application';
 import { scraperRoutes, marcasRoutes } from './interface';
+import { registerRequestLogger } from './interface/middleware';
 
 // ─── Validar variables de entorno requeridas ────────────────────────────
 
@@ -31,6 +32,16 @@ const config: RamosConfig = {
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 
+// ─── Configuración de CORS segura ─────────────────────────────────────
+
+const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
+  : ['http://localhost:3000', 'http://localhost:3001'];
+
+const corsOrigin = ALLOWED_ORIGINS.length === 1 && ALLOWED_ORIGINS[0] === '*'
+  ? true
+  : ALLOWED_ORIGINS;
+
 // ─── Composición (Dependency Injection manual) ──────────────────────────
 
 const ramosAdapter = new RamosScraperAdapter(config);
@@ -51,8 +62,13 @@ const app = Fastify({
   },
 });
 
-// CORS habilitado para todos los orígenes
-app.register(cors, { origin: true });
+// ─── Middlewares ────────────────────────────────────────────────────────
+
+// Logging de request/response
+registerRequestLogger(app);
+
+// CORS con whitelist segura
+app.register(cors, { origin: corsOrigin });
 
 // Swagger / OpenAPI
 app.register(swagger, {
