@@ -34,13 +34,11 @@ const HOST = process.env.HOST || '0.0.0.0';
 
 // ─── Configuración de CORS segura ─────────────────────────────────────
 
-const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',').map((origin) => origin.trim())
-  : ['http://localhost:3000', 'http://localhost:3001'];
-
-const corsOrigin = ALLOWED_ORIGINS.length === 1 && ALLOWED_ORIGINS[0] === '*'
-  ? true
-  : ALLOWED_ORIGINS;
+const corsOrigin = process.env.NODE_ENV === 'production'
+  ? (process.env.ALLOWED_ORIGINS
+      ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim())
+      : ['http://localhost:3000'])
+  : true; // desarrollo: acepta cualquier origen
 
 // ─── Composición (Dependency Injection manual) ──────────────────────────
 
