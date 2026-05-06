@@ -7,6 +7,8 @@
     "build": "tsc",
     "start": "node dist/server.js",
     "dev": "tsx watch src/server.ts",
+    "enrich:inventario": "tsx scripts/enrich-inventario-csv.ts",
+    "enrich:inventario:retry-no-encontrado": "tsx scripts/enrich-inventario-csv.ts --only-no-encontrado",
     "test": "jest",
     "test:watch": "jest --watch",
     "coverage": "jest --coverage"
